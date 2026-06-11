@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="theme-color" content="#000000">
+<title>QR Studio</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="device-stage">
+
+  <!-- Decorative device frame — pointer-events:none, clicks pass through to .device-screen -->
+  <img class="device-frame" src="assets/device_transparent.png" alt="">
+
+  <!-- Live app content — overlaid on the black screen area of the PNG -->
+  <div class="device-screen">
+
+    <header>
+      <div class="logo">
+        <!-- stroke="currentColor" inherits terminal green from CSS -->
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/>
+          <path d="M14 14h3v3h-3z"/><line x1="17" y1="17" x2="21" y2="17"/><line x1="17" y1="21" x2="17" y2="17"/>
+        </svg>
+      </div>
+      <!-- Page title updated by goTab patch below -->
+      <h1 id="page-title">[ QR_CREATE ]</h1>
+      <span class="term-cursor">▌</span>
+    </header>
+
+    <div class="pages">
+
+      <!-- ═══ GENERATE ═══ -->
+      <div id="pg-gen" class="page on">
+
+        <div class="card">
+          <div class="lbl">Текст или ссылка</div>
+          <div class="row">
+            <input type="text" id="qr-in" placeholder="https://... или любой текст" oninput="clearErr()">
+            <button class="btn-pri" onclick="generate()">Создать</button>
+          </div>
+          <div class="err" id="gen-err">Введите текст или ссылку</div>
+        </div>
+
+        <div class="card">
+          <div class="lbl">Настройки</div>
+          <div class="opts">
+            <div class="opt">
+              <span>Размер</span>
+              <select id="sz" onchange="generate()">
+                <option value="160">160 px</option>
+                <option value="200" selected>200 px</option>
+                <option value="256">256 px</option>
+              </select>
+            </div>
+            <div class="opt">
+              <span>Цвет</span>
+              <select id="clr" onchange="generate()">
+                <option value="#000000">Чёрный</option>
+                <option value="#1D3557">Тёмно-синий</option>
+                <option value="#1D9E75">Зелёный</option>
+                <option value="#A32D2D">Красный</option>
+                <option value="#533AB7">Фиолетовый</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="qr-card" id="qr-card">
+          <div class="qr-wrap" id="qr-box"></div>
+          <div class="qr-sub" id="qr-lbl"></div>
+          <div class="qr-btns">
+            <button class="btn-pri" onclick="dlQR()">Скачать PNG</button>
+            <button class="btn-sec" onclick="copyText('qr-in')">Копировать текст</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ═══ SCAN ═══ -->
+      <div id="pg-scan" class="page">
+
+        <div class="mode-bar">
+          <button class="mode-btn on" id="mb-cam" onclick="setMode('cam')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+            Камера
+          </button>
+          <button class="mode-btn" id="mb-file" onclick="setMode('file')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+            Из галереи
+          </button>
+        </div>
+
+        <!-- Camera -->
+        <div class="cam-wrap on" id="cam-wrap">
+          <video id="vid" playsinline autoplay muted></video>
+          <canvas id="cv-hidden"></canvas>
+
+          <div class="finder" id="finder">
+            <div class="corner c-tl"></div>
+            <div class="corner c-tr"></div>
+            <div class="corner c-bl"></div>
+            <div class="corner c-br"></div>
+            <div class="scan-line"></div>
+          </div>
+
+          <div class="scan-hint" id="scan-hint">НАВЕДИТЕ КАМЕРУ НА КОД</div>
+
+          <div class="cam-ph" id="cam-ph">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+            <p id="cam-ph-txt">Нажмите, чтобы<br>включить камеру</p>
+            <button class="btn-pri" id="cam-start-btn" onclick="startCam()">Включить камеру</button>
+            <input type="file" id="cam-capture" accept="image/*" capture="environment" onchange="scanCaptured(event)" style="display:none">
+            <button class="btn-sec" id="cam-capture-btn" style="display:none" onclick="document.getElementById('cam-capture').click()">Сфотографировать QR</button>
+            <p id="cam-hint-sub" style="display:none; font-size:10px; color:var(--txt2); margin-top:-3px; line-height:1.55; text-align:center; font-family:'Courier New',monospace; letter-spacing:.5px">Живой сканер недоступен при открытии<br>файла напрямую. В Capacitor-приложении<br>всё будет работать автоматически.</p>
+          </div>
+
+          <!-- Terminal output panel -->
+          <div class="res-panel" id="cam-res">
+            <div class="res-handle"></div>
+            <div class="res-tag">
+              <div class="res-dot"></div>
+              <span>DECODE SUCCESS</span>
+            </div>
+            <div class="res-txt" id="cam-res-txt"></div>
+            <div class="res-acts">
+              <button class="btn-pri" onclick="copyRes('cam')">Копировать</button>
+              <button class="btn-sec green" id="cam-open-btn" onclick="openUrl('cam')" style="display:none">Открыть ссылку</button>
+              <button class="btn-sec" onclick="dismissCam()">Снова</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- File -->
+        <div class="file-wrap" id="file-wrap">
+          <div class="drop-zone" onclick="document.getElementById('fi').click()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="16 16 12 12 8 16"/>
+              <line x1="12" y1="12" x2="12" y2="21"/>
+              <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/>
+            </svg>
+            <p>Выбрать фото из галереи</p>
+            <small>PNG · JPG · WebP</small>
+          </div>
+          <input type="file" id="fi" accept="image/*" onchange="scanFile(event)">
+
+          <img id="prev-img" class="preview-img" alt="">
+
+          <div class="file-res" id="file-res">
+            <div class="res-tag">
+              <div class="res-dot"></div>
+              <span>DECODE SUCCESS</span>
+            </div>
+            <div class="res-txt" id="file-res-txt"></div>
+            <div class="res-acts">
+              <button class="btn-pri" onclick="copyRes('file')">Копировать</button>
+              <button class="btn-sec green" id="file-open-btn" onclick="openUrl('file')" style="display:none">Открыть ссылку</button>
+            </div>
+          </div>
+
+          <div class="file-err" id="file-err">QR-код не найден на изображении</div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Tab bar — soft keys -->
+    <nav class="tabs">
+      <button class="tab on" id="tb-gen" onclick="goTab('gen')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/>
+          <path d="M14 14h3v3h-3z"/><line x1="17" y1="17" x2="21" y2="17"/><line x1="17" y1="21" x2="17" y2="17"/>
+        </svg>
+        Создать
+      </button>
+      <button class="tab" id="tb-scan" onclick="goTab('scan')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+        Сканировать
+      </button>
+    </nav>
+
+  </div><!-- /.device-screen -->
+
+</div><!-- /.device-stage -->
+
+<script src="js/app.js"></script>
+<script>
+/* Patch goTab to update the terminal page-mode title in the header */
+(function () {
+  var _orig = goTab;
+  goTab = function (t) {
+    _orig(t);
+    document.getElementById('page-title').textContent =
+      t === 'gen' ? '[ QR_CREATE ]' : '[ SCAN_MODE ]';
+  };
+}());
+</script>
+</body>
+</html>
